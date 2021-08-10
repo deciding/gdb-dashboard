@@ -26,6 +26,40 @@ Keep in mind that no GDB command has been redefined, instead all the features ar
 
 Head to the [wiki][] to learn how to perform the most important tasks.
 
+## DEBUG
+
+repeat the command
+```
+$ rc [n] <cmd>
+```
+
+print to tty
+```
+> tty
+$ da registers -output /dev/pts/7
+```
+
+step & break & print
+```
+$ stepi
+$ break *0x000055555600ab80
+$ p $rax
+$ i r rax
+```
+
+record AS code
+```
+$ set logging file xxx
+$ set logging on 
+$ disas /m (/s)
+$ set logging off
+```
+
+show code
+```
+$ x/50i $pc-8*18
+```
+
 [`.gdbinit`]: https://raw.githubusercontent.com/cyrus-and/gdb-dashboard/master/.gdbinit
 [Pygments]: http://pygments.org/
 [wiki]: https://github.com/cyrus-and/gdb-dashboard/wiki

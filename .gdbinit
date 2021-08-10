@@ -39,6 +39,22 @@ import traceback
 
 # Common attributes ------------------------------------------------------------
 
+reg_name_map = {
+        "r8": "M",
+        "r9": "N_r",
+        "rcx": "K",
+        "rbp": "K_r",
+        "r11": "A",
+        "r12": "nxtcol",
+        "rdi": "A_c1",
+        "rsi": "B_c",
+        "r10": "lda",
+        "rdx": "C_c1",
+        "rax": "ldc",
+        "zmm31": "Alpha",
+        "r15": "Zero",
+}
+
 class R():
 
     @staticmethod
@@ -1945,6 +1961,8 @@ class Registers(Dashboard.Module):
                 continue
             value = gdb.parse_and_eval('${}'.format(name))
             string_value = Registers.format_value(value)
+            if name in reg_name_map:
+                name = reg_name_map[name]
             changed = self.table and (self.table.get(name, '') != string_value)
             self.table[name] = string_value
             registers.append((name, string_value, changed))
@@ -2015,6 +2033,35 @@ The empty list (default) causes to show all the available registers.''',
         except (gdb.error, ValueError):
             # convert to unsigned but preserve code and flags information
             pass
+        if 'v16_float' in str(value):
+            raw = [item for item in str(value).split('\n') if 'v16_float' in item][0].split(' = ', 1)[1].strip()
+            limit = 25
+            if raw.endswith('},'):
+                raw = raw[1:-2]
+            elements = raw.split(',')
+            output = ''
+            for elem in elements:
+                cur = elem.split(' = ')[1]
+                suffix = ''
+                # repeat
+                # if cur.endswith('times>'):
+                #     m = re.match(r"<repeats (\d+) times>", cur)
+                #     if m:
+                #         suffix = 'x' + m.group(1) + suffix
+                # scientific
+                cur = cur.split()[0]
+                if 'nan' in cur:
+                    cur = 'nan'
+                    suffix = ''
+                else:
+                    fields = cur.split('e')
+                    if len(fields)>1:
+                        suffix = 'e' + fields[1] + suffix
+                        cur = fields[0]
+                    cur = "{:.1f}".format(float(cur))
+                output += (cur + suffix + ',')
+            return output[:limit]
+
         return str(value)
 
     @staticmethod
@@ -2028,7 +2075,7 @@ The empty list (default) causes to show all the available registers.''',
             if not re.match('\w', name):
                 continue
             for group in groups.split(','):
-                if group in (match_groups or ('general',)):
+                if group in (match_groups or ('general', 'vector')):
                     names.append(name)
                     break
         return names
@@ -2271,6 +2318,27 @@ class Breakpoints(Dashboard.Module):
         }
 
 # XXX traceback line numbers in this Python block must be increased by 1
+
+class RepeatCmd(gdb.Command):
+    """
+    Repeat a command n times:
+    repeat-cmd <n> <cmd>
+    """
+    def __init__(self):
+        super().__init__(
+            'rc',
+            gdb.COMMAND_NONE,
+            gdb.COMPLETE_NONE,
+            False
+        )
+    def invoke(self, arg, from_tty):
+        args = gdb.string_to_argv(arg)
+        n = int(args[0])
+        cmd = ' '.join(args[1:])
+        for i in range(n):
+            gdb.execute(cmd)
+RepeatCmd()
+
 end
 
 # Better GDB defaults ----------------------------------------------------------
@@ -2285,6 +2353,7 @@ set python print-stack full
 # Start ------------------------------------------------------------------------
 
 python Dashboard.start()
+
 
 # File variables ---------------------------------------------------------------
 
